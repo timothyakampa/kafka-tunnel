@@ -26,13 +26,15 @@ def aws(jump_host,zookeeper_port,kafka_port,region,profile):
 
 @cli.command(help='provide the IP\'s of your zookeeper/kafka')
 @click.argument('jump_host')
+@click.argument('jumphost_port')
 @click.argument('zookeeper_ips')
 @click.argument('kafka_ips')
 @click.argument('schemaregistry_ips',default='')
 @click.option('-zp','--zookeeper_port',default='2181')
 @click.option('-kp','--kafka_port',default='9092')
 @click.option('-sp','--schemaregistry_port',default='8081')
-def manual(jump_host,zookeeper_ips, kafka_ips, schemaregistry_ips, zookeeper_port, kafka_port, schemaregistry_port):
+@click.option('-jp','--jumphost_port',default='22')
+def manual(jump_host,zookeeper_ips, kafka_ips, schemaregistry_ips, jumphost_port, zookeeper_port, kafka_port, schemaregistry_port):
     instances=[]
     click.echo(' * using manual ip\'s ...')
     man = ManualInstances()
@@ -40,13 +42,13 @@ def manual(jump_host,zookeeper_ips, kafka_ips, schemaregistry_ips, zookeeper_por
     instances += man.getIps('kafka',kafka_ips, kafka_port)
     if schemaregistry_ips:
         instances += man.getIps('schemareg', schemaregistry_ips, schemaregistry_port)
-    connect(jump_host,instances)
+    connect(jump_host,jumphost_port,instances)
 
 
-def connect(jump_host,instances):
+def connect(jump_host,jumphost_port,instances):
     print_instances(instances)
     add_local_interfaces(instances)
-    connect_ssh_tunnel(jump_host,instances)
+    connect_ssh_tunnel(jump_host,jumphost_port,instances)
     remove_local_interfaces(instances)
 
 def add_local_interfaces(instances):
@@ -73,12 +75,16 @@ def print_instances(instances):
         click.echo('{:<10} on {:<15} port {:>5}'.format(i.name,i.ip,i.port))
     click.echo('')
 
-def connect_ssh_tunnel(jump_host,instances):
-    click.echo(' * connecting to jump host ' + jump_host)
+def connect_ssh_tunnel(jump_host,jumphost_port,instances):
+    click.echo(' jump port ' +  jumphost_port)
+    click.echo(' * connecting to jump_host ' +  jump_host)
+    
     opts = []
     for i in instances:
-        opts += ['-L','{ip}:{port}:{ip}:{port}'.format(ip=i.ip,port=i.port)]
-    subprocess.call(['ssh'] + opts + [jump_host])
+      opts += ['-L','{ip}:{port}:{ip}:{port}'.format(ip=i.ip,port=i.port)]
+    subprocess.call(['ssh'] + opts + [jump_host] + ['-p'] + [jumphost_port])
+
+    
 
 if __name__ == '__main__':
     cli()
